@@ -34,7 +34,9 @@ def procesa_paquete(us,header,data):
 	logging.info('Nuevo paquete de {} bytes capturado en el timestamp UNIX {}.{}'.format(header.len,header.ts.tv_sec,header.ts.tv_sec))
 	num_paquete += 1
 	#TODO imprimir los N primeros bytes
+	
 	#Escribir el tráfico al fichero de captura con el offset temporal
+	
 	
 if __name__ == "__main__":
 	global pdumper,args,handle
@@ -56,6 +58,9 @@ if __name__ == "__main__":
 		parser.print_help()
 		sys.exit(-1)
 
+	print (args.interface)
+
+
 	signal.signal(signal.SIGINT, signal_handler)
 
 	errbuf = bytearray()
@@ -63,8 +68,15 @@ if __name__ == "__main__":
 	pdumper = None
 	
 	#TODO abrir la interfaz especificada para captura o la traza
-	#TODO abrir un dumper para volcar el tráfico (si se ha especificado interfaz) 
+	if args.interface  is False:
+		handle = pcap_open_offline(args.tracefile, errbuf)
+	else:
+		handle = pcap_open_live(args.interface,1000, 1, 0, errbuf)
+	#TODO abrir un dumper para volcar el tráfico (si se ha especificado interfaz)
+	if args.interface is not False and handle is not None:
+		pdumper = pcap_dump_open(handle, "captura." + args.interface + "."+ str(time.time()) + ".pcap")
 	
+        
 	
 	
 	ret = pcap_loop(handle,50,procesa_paquete,None)
@@ -76,5 +88,8 @@ if __name__ == "__main__":
 		logging.debug('No mas paquetes o limite superado')
 	logging.info('{} paquetes procesados'.format(num_paquete))
 	#TODO si se ha creado un dumper cerrarlo
+	if pdumper is not None:
+		pcap_dump_close(pdumper)
+
 	
 
