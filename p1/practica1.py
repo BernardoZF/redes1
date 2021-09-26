@@ -36,7 +36,7 @@ def procesa_paquete(us,header,data):
 	#TODO imprimir los N primeros bytes
 	
 	#Escribir el tráfico al fichero de captura con el offset temporal
-	
+
 	
 if __name__ == "__main__":
 	global pdumper,args,handle
@@ -75,6 +75,7 @@ if __name__ == "__main__":
 	#TODO abrir un dumper para volcar el tráfico (si se ha especificado interfaz)
 	if args.interface is not False and handle is not None:
 		pdumper = pcap_dump_open(handle, "captura." + args.interface + "."+ str(time.time()) + ".pcap")
+		
 	
         
 	
