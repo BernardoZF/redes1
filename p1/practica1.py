@@ -33,9 +33,14 @@ def procesa_paquete(us,header,data):
 	global num_paquete, pdumper
 	logging.info('Nuevo paquete de {} bytes capturado en el timestamp UNIX {}.{}'.format(header.len,header.ts.tv_sec,header.ts.tv_sec))
 	num_paquete += 1
-	#TODO imprimir los N primeros bytes
 	
+	#TODO imprimir los N primeros bytes
+	for i in range (args.nbytes -1):
+		print(binascii.hexlify(data[i:i+1]),end=' ')
+		i += 1
+	print()
 	#Escribir el tráfico al fichero de captura con el offset temporal
+	pcap_dump(pdumper, header, data)
 
 	
 if __name__ == "__main__":
@@ -58,7 +63,6 @@ if __name__ == "__main__":
 		parser.print_help()
 		sys.exit(-1)
 
-	print (args.interface)
 
 
 	signal.signal(signal.SIGINT, signal_handler)
@@ -68,13 +72,19 @@ if __name__ == "__main__":
 	pdumper = None
 	
 	#TODO abrir la interfaz especificada para captura o la traza
-	if args.interface  is False:
+	if args.interface  is not False:
+		handle = pcap_open_live(args.interface, ETH_FRAME_MAX, NO_PROMISC, 10, errbuf)
+		if handle is None:
+			print("Error al abrir la interfaz")
+			sys.exit(-1)
+	elif args.tracefile is not False:
 		handle = pcap_open_offline(args.tracefile, errbuf)
-	else:
-		handle = pcap_open_live(args.interface,1000, 1, 0, errbuf)
-	#TODO abrir un dumper para volcar el tráfico (si se ha especificado interfaz)
+		if handle is None:
+			print("Error al abrir la traza")
+			sys.exit(-1)
+    #TODO abrir un dumper para volcar el tráfico (si se ha especificado interfaz)
 	if args.interface is not False and handle is not None:
-		pdumper = pcap_dump_open(handle, "captura." + args.interface + "."+ str(time.time()) + ".pcap")
+		pdumper = pcap_dump_open(handle, "captura." + args.interface + "."+ str(time.time() + TIME_OFFSET) + ".pcap")
 		
 	
         
