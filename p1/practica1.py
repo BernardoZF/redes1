@@ -38,7 +38,7 @@ def procesa_paquete(us,header,data):
 	for i in range (args.nbytes -1):
 		print(binascii.hexlify(data[i:i+1]),end=' ')
 		i += 1
-		#hola
+		#hola que tal
 	print()
 	#Escribir el tráfico al fichero de captura con el offset temporal
 	pcap_dump(pdumper, header, data)
