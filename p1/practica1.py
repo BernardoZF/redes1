@@ -35,13 +35,22 @@ def procesa_paquete(us,header,data):
 	num_paquete += 1
 	
 	#TODO imprimir los N primeros bytes
-	for i in range (args.nbytes -1):
-		print(binascii.hexlify(data[i:i+1]),end=' ')
-		i += 1
-		#hola que tal
-	print()
+	if num_paquete < 51 and args.interface is not False:
+		for i in range (args.nbytes -1):
+			print(binascii.hexlify(data[i:i+1]),end=' ')
+			i += 1	
+		##print()
+	elif args.tracefile is not False:
+		for i in range (args.nbytes -1):
+			print(binascii.hexlify(data[i:i+1]),end=' ')
+			i += 1	
+
 	#Escribir el tráfico al fichero de captura con el offset temporal
-	pcap_dump(pdumper, header, data)
+	if args.interface is not False:
+		header.ts.tv_sec += TIME_OFFSET
+		pcap_dump(pdumper, header, data)
+	
+	
 
 	
 if __name__ == "__main__":

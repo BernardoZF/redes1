@@ -209,8 +209,3 @@ def pcap_inject(handle:ctypes.c_void_p,buf:bytes,size:int) -> int:
     pi.restype = ctypes.c_int
     ret = pi(handle,ctypes.c_char_p(buf),ctypes.c_longlong(size))
     return ret
-
-
-
-
-
