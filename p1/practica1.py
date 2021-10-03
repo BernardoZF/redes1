@@ -39,7 +39,7 @@ def procesa_paquete(us,header,data):
 		for i in range (args.nbytes -1):
 			print(binascii.hexlify(data[i:i+1]),end=' ')
 			i += 1	
-		##print()
+		print()
 	elif args.tracefile is not False:
 		for i in range (args.nbytes -1):
 			print(binascii.hexlify(data[i:i+1]),end=' ')
@@ -94,7 +94,7 @@ if __name__ == "__main__":
 			sys.exit(-1)
     #TODO abrir un dumper para volcar el tráfico (si se ha especificado interfaz)
 	if args.interface is not False and handle is not None:
-		pdumper = pcap_dump_open(handle, "captura." + args.interface + "."+ str(time.time() + TIME_OFFSET) + ".pcap")
+		pdumper = pcap_dump_open(handle, "captura." + args.interface + "."+ str(time.time()) + ".pcap")
 		
 	
         
