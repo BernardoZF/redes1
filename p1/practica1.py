@@ -44,7 +44,9 @@ def procesa_paquete(us,header,data):
 		for i in range (args.nbytes -1):
 			print(binascii.hexlify(data[i:i+1]),end=' ')
 			i += 1	
-
+		print()
+	elif num_paquete == 51 and args.interface is not False:
+		print("Capturados 50 paquetes ya no se imprimiran mas pero se guardaran en la traza")	
 	#Escribir el tráfico al fichero de captura con el offset temporal
 	if args.interface is not False:
 		header.ts.tv_sec += TIME_OFFSET
@@ -100,7 +102,7 @@ if __name__ == "__main__":
         
 	
 	
-	ret = pcap_loop(handle,50,procesa_paquete,None)
+	ret = pcap_loop(handle,-1,procesa_paquete,None)
 	if ret == -1:
 		logging.error('Error al capturar un paquete')
 	elif ret == -2:

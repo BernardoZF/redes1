@@ -1,0 +1,10 @@
+Pareja 10
+Bernardo Andres Zambrano Ferreira & Sergio Sanchez Alcalde 
+
+Normativa de entrega cumplida en su totalidad: Realizado: Leido varias veces la normativa de entrega
+Contar paquetes de una traza: Realizado : Comprobado con trazas de wireshark 
+Contar paquetes de una interfaz: Realizado: Comprobamos que cuenta todos los paquetes recibidos por la interfaz
+Almacenar en una traza el trafica capturado en vivo: Realizado: Se almacenan todos los paquetes recibidos en la traza
+Modificar la fecha correctamente: Realizado hemos comprobado que de cada paquete que se recibe se cambia la fecha en la traza
+Imprimir los N primeros bytes de un paquete y validarlo con Wireshark: Realizado: hemos comprobado que los paquetes son equivalentes en todos los bytes impresos
+Cuestionario "Ejercicios de captura de trafico: Realizado: contestadas a todas las preguntas 
