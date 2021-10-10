@@ -12,6 +12,9 @@ import struct
 from binascii import hexlify
 import struct 
 import threading 
+
+
+###################################CONSTANTES################################################
 #Tamaño máximo de una trama Ethernet (para las prácticas)
 ETH_FRAME_MAX = 1514
 #Tamaño mínimo de una trama Ethernet
@@ -23,6 +26,15 @@ TO_MS = 10
 broadcastAddr = bytes([0xFF]*6)
 #Diccionario que alamacena para un Ethertype dado qué función de callback se debe ejecutar
 upperProtos = {}
+
+#Variable direccion MAC
+macAddress = None
+#Variable que indica si es ethernet
+levelInitialized = False
+#Variable interfaz
+handle = None
+#Hilo receptor de la interfaz
+recvThread = None
 
 def getHwAddr(interface:str):
     '''
@@ -61,8 +73,20 @@ def process_Ethernet_frame(us:ctypes.c_void_p,header:pcap_pkthdr,data:bytes) -> 
         Retorno:
             -Ninguno
     '''
-    logging.debug('Trama nueva. Función no implementada')
     #TODO: Implementar aquí el código que procesa una trama Ethernet en recepción
+
+    macTarget = data[0:6]
+    macSender = data[6:12]
+    etherType = data[12:14]
+
+    if macTarget != broadcastAddr and macSender != macAddress:
+        return
+    
+    etherKey = int.from_bytes(etherType, byteorder='big')
+    if upperProtos.get(etherKey) == None:
+        return
+
+    upperProtos[etherKey](us, header, data[14:], macSender)
     
 
 def process_frame(us:ctypes.c_void_p,header:pcap_pkthdr,data:bytes) -> None:
@@ -126,7 +150,7 @@ def registerCallback(callback_func: Callable[[ctypes.c_void_p,pcap_pkthdr,bytes]
     '''
     global upperProtos
     #upperProtos es el diccionario que relaciona función de callback y ethertype
-    logging.debug('Función no implementada')
+    upperProtos[ethertype] = callback_func
     
 
 def startEthernetLevel(interface:str) -> int:
@@ -147,6 +171,17 @@ def startEthernetLevel(interface:str) -> int:
     handle = None
     logging.debug('Función no implementada')
     #TODO: implementar aquí la inicialización de la interfaz y de las variables globales
+    global macAddress, handle, levelInitialized, recvThread
+
+    if levelInitialized:
+        logging.error("Ya se ha abierto el nivel ethernet")
+        return -1
+
+    macAddress = getHwAddr(interface)
+
+    errbuf = bytearray()
+    handle = pcap_open_live(interface, ETH_FRAME_MAX, PROMISC, TO_MS, errbuf)
+    levelInitialized = True
 
     #Una vez hemos abierto la interfaz para captura y hemos inicializado las variables globales (macAddress, handle y levelInitialized) arrancamos
     #el hilo de recepción
@@ -167,7 +202,14 @@ def stopEthernetLevel()->int:
         Argumentos: Ninguno
         Retorno: 0 si todo es correcto y -1 en otro caso
     '''
-    logging.debug('Función no implementada')
+
+    recvThread.stop()
+
+    if handle is not None:
+        pcap_close(handle)
+    
+    levelInitialized = False
+
     return 0
     
 def sendEthernetFrame(data:bytes,length:int,etherType:int,dstMac:bytes) -> int:
@@ -188,6 +230,21 @@ def sendEthernetFrame(data:bytes,length:int,etherType:int,dstMac:bytes) -> int:
         Retorno: 0 si todo es correcto, -1 en otro caso
     '''
     global macAddress,handle
-    logging.debug('Función no implementada')
+
+    if (length + 14) > ETH_FRAME_MAX:
+        print ("Error paquete demasiado grande para enviar")
+        return -1
     
+    frame = dstMac + macAddress + struct.pack(">H", etherType) + data
+
+    if (length + 14) < ETH_FRAME_MIN:
+        padding = ETH_FRAME_MIN - (length + 14)
+        frame += bytes([0x00] * padding)
+
+    if pcap_inject(handle, frame, length + 14) != (length + 14):
+        print("Error al enviar el paquete por a interfaz")
+        return -1
+
+
+    return 0
         
