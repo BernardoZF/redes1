@@ -37,6 +37,11 @@ cacheLock = Lock()
 #Caché de ARP. Es un diccionario similar al estándar de Python solo que eliminará las entradas a los 10 segundos
 cache = ExpiringDict(max_len=100, max_age_seconds=10)
 
+myIP = None
+
+myMAC = None
+
+arpInitialiazed = False
 
 
 def getIP(interface:str) -> int:
@@ -89,8 +94,24 @@ def processARPRequest(data:bytes,MAC:bytes)->None:
             -MAC: dirección MAC origen extraída por el nivel Ethernet
         Retorno: Ninguno
     '''
-    logging.debug('Función no implementada')
-    #TODO implementar aquí
+    global myIP
+
+    macEmisor = data[0:6]
+    if macEmisor != MAC:
+        ##ERROR 
+        return 
+    
+    ipOrigen = data[6:10]
+    ipDestino = data[16:20]
+    if ipDestino != struct.pack('!I', myIP):
+        logging.debug("Target IP doesnt match with my myIP: {:12}".format(
+            socket.inet_ntoa(struct.pack('!I', myIP))))
+        return
+
+    reply = createARPReply(ipOrigen, macEmisor)
+    etherType = int.from_bytes(bytes([0x08, 0x06]), byteorder='big')
+    sendEthernetFrame(reply, len(reply), etherType, macEmisor)
+
 def processARPReply(data:bytes,MAC:bytes)->None:
     '''
         Nombre: processARPReply
@@ -115,8 +136,34 @@ def processARPReply(data:bytes,MAC:bytes)->None:
         Retorno: Ninguno
     '''
     global requestedIP,resolvedMAC,awaitingResponse,cache
-    logging.debug('Función no implentada')    
-    #TODO implementar aquí
+
+
+    macEmisor = data[0:6]
+    if macEmisor != MAC:
+        logging.debug("ARP MAC Sender doesnt match Ethernet MAC sender")
+        return
+
+    macDestino = data[10:16]
+    ipOrigen = data[6:10]
+    ipDestino = data[16:20]
+
+
+    if ipDestino != struct.pack('!I', myIP):
+        logging.debug("IPs dont match")
+        return
+    
+    if ipOrigen != requestedIP:
+        return
+
+    with globalLock:
+        requestedIP = None
+        resolvedMAC = macEmisor
+        awaitingResponse = False
+
+    with cacheLock:
+        cachekey = struct.unpack('!I', ipOrigen)
+        cache[cachekey] = macEmisor
+
         
 
 
@@ -130,9 +177,13 @@ def createARPRequest(ip:int) -> bytes:
         Retorno: Bytes con el contenido de la trama de petición ARP
     '''
     global myMAC,myIP
+
     frame = bytes()
-    logging.debug('Función no implementada')
-    #TODO implementar aqui
+    frame += ARPHeader
+    frame += struct.pack('!H', 0x0001)
+    frame += struct.pack('!I', myIP)
+    frame += bytes([0x00]*6)
+    frame += struct.pack('!I', ip)
     return frame
 
     
@@ -145,10 +196,14 @@ def createARPReply(IP:int ,MAC:bytes) -> bytes:
             -MAC: dirección MAC a la que contestar
         Retorno: Bytes con el contenido de la trama de petición ARP
     '''
-    global myMAC,myIP
+    global myMAC, myIP
+
     frame = bytes()
-    logging.debug('Función no implementada')
-    #TODO implementar aqui
+    frame += ARPHeader
+    frame += struct.pack('!H', 0x0002)
+    frame += struct.pack('!I', myIP)
+    frame += MAC
+    frame += struct.pack('!I', IP)
     return frame
 
 
@@ -171,8 +226,19 @@ def process_arp_frame(us:ctypes.c_void_p,header:pcap_pkthdr,data:bytes,srcMac:by
             -srcMac: MAC origen de la trama Ethernet que se ha recibido
         Retorno: Ninguno
     '''
-    logging.debug('Función no implementada')
-    #TODO implementar aquí
+
+    header = data[0:6]
+    if header != ARPHeader:
+        return
+    
+    opCode = data[6:8]
+    if opCode == bytes([0x00, 0x01]):
+        processARPRequest(data[8:], srcMac)
+    elif opCode == bytes([0x00, 0x02]):
+        processARPReply(data[8:], srcMac)
+    else:
+        return
+
 
 
 
@@ -185,9 +251,19 @@ def initARP(interface:str) -> int:
             -Realizar una petición ARP gratuita y comprobar si la IP propia ya está asignada. En caso positivo se debe devolver error.
             -Marcar la variable de nivel ARP inicializado a True
     '''
-    global myIP,myMAC,arpInitialized
-    logging.debug('Función no implementada')
-    #TODO implementar aquí
+    global myIP, myMAC, arpInitialized
+    
+    etherType = int.from_bytes(bytes[0x08, 0x06], byteorder='big')
+    registerCallback(process_arp_frame, etherType)
+
+    myIP = getIP(interface)
+    myMAC = getHwAddr(interface)
+
+    if ARPResolution(myIP):
+        return -1
+    
+    arpInitialiazed = True
+
     return 0
 
 def ARPResolution(ip:int) -> bytes:
@@ -210,6 +286,28 @@ def ARPResolution(ip:int) -> bytes:
             Como estas variables globales se leen y escriben concurrentemente deben ser protegidas con un Lock
     '''
     global requestedIP,awaitingResponse,resolvedMAC
-    logging.debug('Función no implementada')
-    #TODO implementar aquí
+    
+
+    with cacheLock:
+        mac = cache.get(ip)
+        if mac:
+            return mac
+        
+    
+    with globalLock:
+        awaitingResponse = True
+        requestedIP = ip
+
+    num_requests = 0
+    ARPdata = createARPRequest(requestedIP)
+    while (awaitingResponse and num_requests < 3):
+        etherType = int.from_bytes(bytes[0x08, 0x06], byteorder='big')
+        sendEthernetFrame(ARPdata, len(ARPdata), etherType, broadcastAddr)
+        num_requests += 1
+
+
+    if resolvedMAC is not None:
+        return resolvedMAC
+
+    
     return None
