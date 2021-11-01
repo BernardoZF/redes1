@@ -152,7 +152,7 @@ def processARPReply(data:bytes,MAC:bytes)->None:
         logging.debug("IPs dont match")
         return
     
-    if ipOrigen != requestedIP:
+    if struct.unpack('!I' ,ipOrigen)[0] != requestedIP:
         return
 
     with globalLock:
@@ -161,7 +161,7 @@ def processARPReply(data:bytes,MAC:bytes)->None:
         awaitingResponse = False
 
     with cacheLock:
-        cachekey = struct.unpack('!I', ipOrigen)
+        cachekey = struct.unpack('!I', ipOrigen)[0]
         cache[cachekey] = macEmisor
 
         
@@ -179,8 +179,10 @@ def createARPRequest(ip:int) -> bytes:
     global myMAC,myIP
 
     frame = bytes()
+
     frame += ARPHeader
-    frame += struct.pack('!H', 0x0001)
+    frame += bytes ([0x00, 0x01])
+    frame += myMAC
     frame += struct.pack('!I', myIP)
     frame += bytes([0x00]*6)
     frame += struct.pack('!I', ip)
@@ -199,11 +201,14 @@ def createARPReply(IP:int ,MAC:bytes) -> bytes:
     global myMAC, myIP
 
     frame = bytes()
+
     frame += ARPHeader
-    frame += struct.pack('!H', 0x0002)
+    frame += bytes([0x00,0x02])
+    frame += myMAC
     frame += struct.pack('!I', myIP)
     frame += MAC
-    frame += struct.pack('!I', IP)
+    frame += IP
+    
     return frame
 
 
@@ -253,7 +258,7 @@ def initARP(interface:str) -> int:
     '''
     global myIP, myMAC, arpInitialized
     
-    etherType = int.from_bytes(bytes[0x08, 0x06], byteorder='big')
+    etherType = int.from_bytes(bytes([0x08, 0x06]), byteorder='big')
     registerCallback(process_arp_frame, etherType)
 
     myIP = getIP(interface)
@@ -301,13 +306,15 @@ def ARPResolution(ip:int) -> bytes:
     num_requests = 0
     ARPdata = createARPRequest(requestedIP)
     while (awaitingResponse and num_requests < 3):
-        etherType = int.from_bytes(bytes[0x08, 0x06], byteorder='big')
+        etherType = int.from_bytes(bytes([0x08, 0x06]), byteorder='big')
         sendEthernetFrame(ARPdata, len(ARPdata), etherType, broadcastAddr)
         num_requests += 1
 
 
-    if resolvedMAC is not None:
+    if (resolvedMAC is not None):
         return resolvedMAC
+
+    
 
     
     return None

@@ -79,7 +79,7 @@ def process_Ethernet_frame(us:ctypes.c_void_p,header:pcap_pkthdr,data:bytes) -> 
     macSender = data[6:12]
     etherType = data[12:14]
 
-    if macTarget != broadcastAddr and macSender != macAddress:
+    if macTarget != broadcastAddr and macTarget != macAddress:
         return
     
     etherKey = int.from_bytes(etherType, byteorder='big')
@@ -167,11 +167,8 @@ def startEthernetLevel(interface:str) -> int:
             -Interface: nombre de la interfaz sobre la que inicializar el nivel Ethernet
         Retorno: 0 si todo es correcto, -1 en otro caso
     '''
-    global macAddress,handle,levelInitialized,recvThread
-    handle = None
-    logging.debug('Función no implementada')
-    #TODO: implementar aquí la inicialización de la interfaz y de las variables globales
     global macAddress, handle, levelInitialized, recvThread
+
 
     if levelInitialized:
         logging.error("Ya se ha abierto el nivel ethernet")
