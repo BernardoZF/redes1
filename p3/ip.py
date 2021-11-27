@@ -1,3 +1,4 @@
+import binascii
 from ethernet import *
 from arp import *
 from fcntl import ioctl
@@ -119,8 +120,66 @@ def process_IP_datagram(us,header,data,srcMac):
             -srcMac: MAC origen de la trama Ethernet que se ha recibido
         Retorno: Ninguno
     '''
+    data  = bytes(data)
+    version = data[0] >> 0x04
 
+    ihl = data[0] & 0x0F
+    ihl = ihl * 4
 
+    Type_of_service = data[1]
+
+    totalLength = data[2:4]
+
+    identification = data[4:6]
+
+    DF = data[6] & 0x40
+    DF = DF >> 6
+
+    MF = data[6] & 0x20
+    MF = MF >> 5
+
+    Offset = int(binascii.hexlify(data[6:8]), 16) & 0x1F
+
+    Time_to_live = data[8]
+
+    protocol = data[9]
+
+    Header_checksum = data[10:12]
+
+    ipOrigen = data[12:16]
+    ipDestino = data[16:20]
+
+    checksum = chksum(data[:ihl])
+    if checksum != 0:
+        print("checksum fallo")
+        return
+
+    
+    if Offset != 0:
+        return 
+    
+    logging.debug("Cabecera IP: " + str(ihl))
+    logging.debug("IPID: "+ str(identification))
+    logging.debug("DF Flag: " + str(DF))
+    logging.debug("MF Flag: " + str(MF))
+    logging.debug("Offset : " + str(Offset))
+    logging.debug("IP Origen: " + str(ipOrigen))
+    logging.debug("IP Destino: " + str(ipDestino))
+    if protocol == 1:
+        logging.debug("Protocolo ICMP")
+    if protocol == 6:
+        logging.debug("Protocolo IP")
+    if protocol == 17:
+        logging.debug("Protocolo UDP")
+
+    if not protocol in protocols:
+        logging.debug("No se encuentra el protocolo en el diccionario")
+        return 
+
+    func = protocols[protocol]
+    
+    payload = data[ihl:]
+    func(us, header, payload, ipOrigen)
 
 
 
@@ -145,6 +204,7 @@ def registerIPProtocol(callback,protocol):
             -protocol: valor del campo protocolo de IP para el cuál se quiere registrar una función de callback.
         Retorno: Ninguno 
     '''
+    protocols[protocol] = callback
 
 def initIP(interface,opts=None):
     global myIP, MTU, netmask, defaultGW,ipOpts
@@ -164,6 +224,16 @@ def initIP(interface,opts=None):
             -opts: array de bytes con las opciones a nivel IP a incluir en los datagramas o None si no hay opciones a añadir
         Retorno: True o False en función de si se ha inicializado el nivel o no
     '''
+
+    initARP(interface)
+
+    myIP = getIP(interface)
+    MTU = getMTU(interface)
+    netmask = getNetmask(interface)
+    defaultGW = getDefaultGW(interface)
+    ipOpts = opts
+
+    registerCallback(process_IP_datagram, bytes([0x08,0x00]))
 
 def sendIPDatagram(dstIP,data,protocol):
     global IPID
@@ -194,6 +264,22 @@ def sendIPDatagram(dstIP,data,protocol):
         Retorno: True o False en función de si se ha enviado el datagrama correctamente o no
           
     '''
+    if ipOpts is not None:
+        ipHeaderLength = IP_MIN_HLEN + len(ipOpts)
+    else:
+        ipHeaderLength = IP_MIN_HLEN
+    
+    if ipHeaderLength > IP_MAX_HLEN:
+        return False
+
+    maxPayloadLength = 1500 - ipHeaderLength
+    while(maxPayloadLength % 8) != 0 : 
+        maxPayloadLength -= 1
+    
+    numPackages = (len(data) // maxPayloadLength)
+    if len(data) % maxPayloadLength is not 0:
+        numPackages += 1
+    
     header = bytes()
 
 

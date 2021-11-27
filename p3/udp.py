@@ -40,10 +40,27 @@ def process_UDP_datagram(us,header,data,srcIP):
         Retorno: Ninguno
           
     '''
+    '''
+        Source_port: bytes 1 y 2
+        Destination_port: bytes 3 y 4
+        length: bytes 5 y 6
+        checksum: bytes 7 y 8
+    '''
+    source_port = data[0:2]
+    destination_port = data[2:4]
+    length = data[4:6]
+    checksum = bytes[6:8]
+
+    logging.debug("Puerto origen: " + str(source_port[0]) + "." + str(source_port[1]))
+    logging.debug("Puerto destino: " + str(destination_port[0]) + "." + str(destination_port[1]))
+    logging.debug("informacion del paquete: " + str(data[8:(struct.unpack('!h',length)[0])]))
+    logging.debug("datagrama udp: " + str(data[:(struct.unpack('!h',length)[0])]))
+
+    return
 
 
 def sendUDPDatagram(data,dstPort,dstIP):
-     '''
+    '''
         Nombre: sendUDPDatagram
         Descripción: Esta función construye un datagrama UDP y lo envía
         Esta función debe realizar, al menos, las siguientes tareas:
@@ -60,9 +77,17 @@ def sendUDPDatagram(data,dstPort,dstIP):
         Retorno: True o False en función de si se ha enviado el datagrama correctamente o no
           
     '''
+    header = bytes()
+    header = getUDPSourcePort().to_bytes(2, byteorder='big') + dstPort.to_bytes(2, byteorder='big') + (UDP_HLEN + len(data)).to_bytes(2, byteorder='big') + (0).to_bytes(2, byteorder='big')
+
     datagram = bytes()
+    datagram += header
+    datagram += data
 
+    sendIPDatagram(dstIP, datagram, UDP_PROTO)
 
+    return
+    
 def initUDP():
     '''
         Nombre: initUDP
@@ -75,3 +100,5 @@ def initUDP():
         Retorno: Ninguno
           
     '''
+    registerIPProtocol(process_UDP_datagram, UDP_PROTO)
+    return
