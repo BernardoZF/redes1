@@ -41,7 +41,24 @@ def process_ICMP_message(us,header,data,srcIp):
         Retorno: Ninguno
           
     '''
-    
+
+    tipo = data[0]
+    codigo = data[1]
+
+    logging.debug("Tipo: " + str(tipo))
+    logging.debug("Codigo: " +str(codigo))
+
+    if tipo == ICMP_ECHO_REQUEST_TYPE:
+        sendICMPMessage(data, ICMP_ECHO_REPLY_TYPE,0,struct.unpack('!h', data[4:6])[0]+struct.unpack('!h',data[6:8])[0], struct.unpack('!I', srcIp)[0])
+    elif tipo == ICMP_ECHO_REPLY_TYPE:
+        with timeLock:
+            tiempo_dict = icmp_send_times[struct.unpack('!I', srcIp)[0]+struct.unpack('!h', data[4:6])[0]+struct.unpack('!h',data[6:8])[0]]
+        
+        tiempo_real = header.ts.tv_sec - tiempo_dict
+
+        print("Estimacion de RTT: "+ str(tiempo_real))
+
+    return    
 
 def sendICMPMessage(data,type,code,icmp_id,icmp_seqnum,dstIP):
     '''
@@ -72,8 +89,20 @@ def sendICMPMessage(data,type,code,icmp_id,icmp_seqnum,dstIP):
         Retorno: True o False en función de si se ha enviado el mensaje correctamente o no
           
     '''
+
+    header = bytearray()
+    header += type.to_bytes(1, byteorder='big')
+    header += code.to_bytes(1, byteorder='big')
+    header += b'\x00\x00'
+    header += icmp_id.to_bytes(2, byteorder='big')
+    header += icmp_seqnum.to_bytes(2, byteorder='big')
   
     message = bytes()
+    message += header
+    message += data
+
+    checksum = chksum(message)
+    header[2:4] = struct.pack('!H', checksum)
    
 def initICMP():
     '''
@@ -87,3 +116,4 @@ def initICMP():
         Retorno: Ninguno
           
     '''
+    registerIPProtocol(process_ICMP_message, 1)
